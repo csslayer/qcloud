@@ -5,6 +5,9 @@
 #include "daemon.h"
 #include "accountmanager.h"
 #include "account.h"
+#include "request.h"
+#include "entryinfo.h"
+#include <QFileInfo>
 
 #include <QDebug>
 
@@ -95,4 +98,48 @@ QCloud::InfoList Service::listAccounts()
         qDebug() << "UUID : " << account->uuid() << "userName : " << account->userName();
     }
     return infoList;
+}
+
+void Service::listFiles(const QString& uuid,const QString& directory)
+{
+    Account *account = m_daemon->accountManager()->findAccount(uuid);
+    qDebug() << account->backend()->userName();
+    QCloud::Request* request = account->backend()->pathInfo(directory,&entryInfo,&entryList);
+    //request->waitForFinished();
+    connect(request,SIGNAL(finished()),this,SLOT(listFilesRequestFinished()));
+}
+
+void Service::listFilesRequestFinished()
+{
+    qDebug() << "Sending finished signal...";
+    QCloud::InfoList infoList;
+    infoList.clear();
+    QCloud::Info info;
+    //set ..
+    QFileInfo fileInfo(entryInfo.path());
+    info.setName(fileInfo.path());
+    if (entryInfo.isDir())
+        info.setDescription("is_dir");
+    else
+        info.setDescription("not_a_dir");
+    info.setDisplayName("..");
+    info.setIconName(entryInfo.icon());
+    infoList << info;
+    
+    foreach(QCloud::EntryInfo i,entryList){
+        fileInfo = QFileInfo(i.path());
+        info.setName(i.path());
+        if (i.isDir())
+            info.setDescription("is_dir");
+        else
+            info.setDescription("not_a_dir");
+        info.setDisplayName(fileInfo.fileName());
+        info.setIconName(i.icon());
+        
+        qDebug() << info.name() << " " << info.description();
+        
+        infoList << info;
+    }
+    
+    notifyDirectoryInfoTransformed(infoList);
 }

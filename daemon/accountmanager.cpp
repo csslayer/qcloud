@@ -95,7 +95,10 @@ Account* AccountManager::parseConfig (const QString& id)
 
 Account* AccountManager::findAccount (const QUuid& uuid)
 {
-    return NULL;
+    if (m_accounts.contains(uuid))
+        return m_accounts[uuid];
+    else
+        return NULL;
 }
 
 QList< Account* > AccountManager::listAccounts()

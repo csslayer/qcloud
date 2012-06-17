@@ -6,11 +6,14 @@
 #include "factory.h"
 #include "app.h"
 #include "request.h"
+#include "entryinfo.h"
+
+using namespace QCloud;
 
 void printUsage(char **argv)
 {
     printf ("Usage : %s appfile download/upload/move/copy [source] [destination]\n",argv[0]);
-    printf ("or    : %s appfile create_folder/delete [path]\n",argv[0]);
+    printf ("or    : %s appfile create_folder/delete/get_info [path]\n",argv[0]);
 }
 
 int main (int argc, char* argv[])
@@ -69,6 +72,11 @@ int main (int argc, char* argv[])
         }
         else if (strcmp(argv[2], "delete") == 0){
             QCloud::Request* request = dropbox->deleteFile(QString::fromLocal8Bit(argv[3]));
+            request->waitForFinished();
+        }
+        else if (strcmp(argv[2], "get_info") == 0){
+            EntryInfo info;
+            QCloud::Request* request = dropbox->pathInfo(QString::fromLocal8Bit(argv[3]),&info);
             request->waitForFinished();
         }
         else {

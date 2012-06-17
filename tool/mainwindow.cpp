@@ -14,7 +14,10 @@ MainWindow::MainWindow (QWidget* parent, Qt::WindowFlags flags) : QMainWindow (p
     , m_widget (new QWidget (this))
     , m_ui (new Ui::Tool)
     , m_accountModel (new InfoModel(this))
+    , m_fileModel(new InfoModel(this))
 {
+    currentDir = "";
+    
     setCentralWidget (m_widget);
     m_ui->setupUi (m_widget);
     m_ui->accountView->setModel(m_accountModel);
@@ -22,15 +25,21 @@ MainWindow::MainWindow (QWidget* parent, Qt::WindowFlags flags) : QMainWindow (p
 
     m_addAccountButton = m_ui->addAccountButton;
     m_deleteAccountButton = m_ui->deleteAccountButton;
+    m_listButton = m_ui->listButton;
 
     m_addAccountButton->setIcon (QIcon::fromTheme ("list-add"));
     m_deleteAccountButton->setIcon (QIcon::fromTheme ("list-remove"));
+    
+    m_ui->fileView->setModel(m_fileModel);
+    m_ui->fileView->setSelectionMode(QAbstractItemView::SingleSelection);
 
     setWindowTitle (tr ("QCloud"));
     setWindowIcon (QIcon::fromTheme ("qcloud"));
 
     connect (m_addAccountButton, SIGNAL (clicked (bool)), this, SLOT (addAccountButtonClicked()));
     connect (m_deleteAccountButton, SIGNAL(clicked(bool)), this, SLOT(deleteAccountButtonClicked()));
+    connect (m_ui->fileView, SIGNAL(activated(QModelIndex)),this, SLOT(fileListActivated()));
+    connect (m_listButton, SIGNAL(clicked(bool)),this, SLOT(listButtonClicked()));
 }
 
 MainWindow::~MainWindow()
@@ -77,3 +86,59 @@ void MainWindow::loadAccount()
     QDBusPendingCallWatcher* appsWatcher = new QDBusPendingCallWatcher(accounts);
     connect(appsWatcher, SIGNAL(finished(QDBusPendingCallWatcher*)), this, SLOT(accountsFinished(QDBusPendingCallWatcher*)));
 }
+
+bool MainWindow::loadFileList()
+{
+    qDebug() << "Loading file list...";
+    if (!m_ui->accountView->currentIndex().isValid()){
+        qDebug() << "Invalid index!";
+        return false;
+    }
+    QModelIndex index;
+    index = m_ui->accountView->currentIndex();
+    QString uuid = static_cast< QCloud::Info* > (index.internalPointer())->name();
+    if (uuid.isEmpty()){
+        return false;
+    }
+    //QDBusPendingReply< QCloud::InfoList > files = ClientApp::instance()->client()->listFiles(uuid,currentDir);
+    ClientApp::instance()->client()->listFiles(uuid,currentDir);
+    //QDBusPendingCallWatcher* appsWatcher = new QDBusPendingCallWatcher(files);
+    //connect(appsWatcher, SIGNAL(finished(QDBusPendingCallWatcher*)), this, SLOT(filesFinished(QDBusPendingCallWatcher*)));
+    connect(ClientApp::instance()->client(),SIGNAL(directoryInfoTransformed(const QCloud::InfoList&)),this,SLOT(fileListFinished(QCloud::InfoList)));
+    return true;
+}
+
+void MainWindow::filesFinished(QDBusPendingCallWatcher* watcher)
+{
+    QDBusPendingReply< QCloud::InfoList > backends(*watcher);
+    m_fileModel->setInfoList(backends.value());
+}
+
+void MainWindow::fileListActivated()
+{    if (!m_ui->fileView->currentIndex().isValid()){
+        qDebug() << "Invalid index!";
+        return ;
+    }
+    QModelIndex index;
+    index = m_ui->fileView->currentIndex();
+    QString lastDir = currentDir;
+    currentDir = static_cast<QCloud::Info*> (index.internalPointer())->name();
+    QString is_dir = static_cast< QCloud::Info* > (index.internalPointer())->description();
+    qDebug() << is_dir << " " << currentDir;
+    if (is_dir!="is_dir" || (!loadFileList())){
+        currentDir = lastDir;
+        return ;
+    }
+}
+
+void MainWindow::listButtonClicked()
+{
+    loadFileList();
+}
+
+void MainWindow::fileListFinished(const QCloud::InfoList& info)
+{
+    qDebug() << "Got file list info";
+    m_fileModel->setInfoList(info);
+}
+

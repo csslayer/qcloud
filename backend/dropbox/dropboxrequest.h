@@ -3,12 +3,16 @@
 
 #include <QFile>
 #include <QBuffer>
+#include <QVariant>
+#include <QMap>
 #include <qjson/parser.h>
 #include <QtOAuth/QtOAuth>
 #include "request.h"
+#include "entryinfo.h"
 
 class QNetworkReply;
 class QFile;
+class EntryInfo;
 
 class Dropbox;
 class DropboxRequest : public QCloud::Request
@@ -114,6 +118,24 @@ protected slots:
 protected:
     QJson::Parser m_parser;
     QBuffer m_buffer;
+};
+
+class DropboxGetInfoRequest : public DropboxRequest
+{
+    Q_OBJECT
+public:
+    DropboxGetInfoRequest (Dropbox* dropbox, const QString& path,QCloud::EntryInfo* info,QCloud::EntryList* contents);
+    virtual ~DropboxGetInfoRequest();
+protected slots:
+    virtual void readyForRead();
+    virtual void replyFinished();
+protected:
+    QJson::Parser m_parser;
+    QBuffer m_buffer;
+    QCloud::EntryInfo* m_info;
+    QCloud::EntryList* m_contents;
+private:
+    QCloud::EntryInfo getInfoFromMap(const QVariantMap& infoMap);
 };
 
 #endif
